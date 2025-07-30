@@ -1,0 +1,80 @@
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: keda-metric-api-creds
+  namespace: util
+spec:
+  secretTargetRef:
+    - parameter: apiKey
+      name: utilsecrets
+      key: VQ_KEY
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledJob
+metadata:
+  name: product-capture-scaler
+  namespace: util
+  annotations:
+    autoscaling.keda.sh/paused: "false" # change to true to pause scaling
+spec:
+  jobTargetRef:
+    parallelism: 1
+    completions: 1
+    activeDeadlineSeconds: 1500
+    backoffLimit: 1
+    template:
+      spec:
+        terminationGracePeriodSeconds: 60
+        restartPolicy: Never
+        tolerations:
+          - key: "gpu"
+            operator: "Equal"
+            value: "big"
+        containers:
+          - name: product-capture
+            image: us-central1-docker.pkg.dev/assetpipeline-345/util/product-capture
+            resources:
+              requests:
+                cpu: 2000m
+                memory: 10Gi
+                nvidia.com/gpu: "1"
+              limits:
+                nvidia.com/gpu: "1"
+              # requests: # testing
+              #   cpu: 200m
+              #   memory: 100Mi
+            env:
+              - name: DEBUG
+                value: "TRUE"
+              - name: VQ_URL
+                value: https://api.345.global
+              - name: VQ_KEY
+                valueFrom:
+                  secretKeyRef:
+                    name: utilsecrets
+                    key: VQ_KEY
+              - name: ORGANISATION_UUID
+                value: 5471ef92-5c66-4355-88fe-b33a9cebda09
+              # see job.yaml for more options
+        nodeSelector:
+          iam.gke.io/gke-metadata-server-enabled: "true"
+  pollingInterval: 10
+  successfulJobsHistoryLimit: 5
+  failedJobsHistoryLimit: 5
+  minReplicaCount: 0 # Optional. Default: 0
+  maxReplicaCount: 5 # Optional. Default: 100
+  rollout:
+    strategy: gradual # will not delete running jobs
+  scalingStrategy:
+    strategy: "default" # going mad trying to understand this
+  triggers:
+  - type: metrics-api
+    metadata:
+      targetValue: "1"
+      format: "json"
+      url: "https://api.345.global/api/v1/jobs/tasks/scale?serviceName=product_capture&majorVersion=0&minorVersion=1&patchVersion=0&channel=generic"
+      valueLocation: "tasks"
+      authMode: "apiKey"
+      method: "header"
+    authenticationRef:
+      name: keda-metric-api-creds
