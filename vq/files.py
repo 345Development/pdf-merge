@@ -68,11 +68,11 @@ class VQFilesManager:
                 if shutdown_handler.interrupted:
                     return
 
-                vq_files_url = (
-                    f"{self.vq_url}/api/v1/fileReferences/{file_uuid}"
-                    f"&organisation={organisation_uuid}"
+                response = requests.get(
+                    url=f"{self.vq_url}/api/v1/fileReferences/{file_uuid}",
+                    params={"organisation": organisation_uuid},
+                    headers=self.headers,
                 )
-                response = requests.get(url=vq_files_url, headers=self.headers)
 
                 if response.status_code == 404:
                     raise FileNotFoundError(
