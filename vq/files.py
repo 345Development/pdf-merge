@@ -102,13 +102,6 @@ class VQFilesManager:
     def upload_files(
         self, folder_uuid: UUID, files: List[Path], organisation_uuid: UUID
     ):
-        upload_url = (
-            f"{self.vq_url}/api/v1/fileReferences/file"
-            "?overwrite=overwrite"
-            "&runTriggers=true"
-            f"&organisation={organisation_uuid}"
-        )
-
         for file_path in log.ProgressBar(files, desc="Uploading"):
             with open(file_path, "rb") as file_data:
                 files_body = {
@@ -121,7 +114,12 @@ class VQFilesManager:
                 log.log(f"Uploading {file_path.name}")
 
                 response = requests.post(
-                    url=upload_url,
+                    url=f"{self.vq_url}/api/v1/fileReferences/file",
+                    params={
+                        "overwrite": "overwrite",
+                        "runTriggers": True,
+                        "organisation": organisation_uuid,
+                    },
                     headers=self.headers,
                     files=files_body,
                     data=data_body,
