@@ -3,10 +3,9 @@ from pathlib import Path
 import signal
 import tempfile
 
-from utils.dependencies import Reason
+from utils.dependencies import Reason, GracefulShutdownHandler
 import utils.logging as log
-from utils import GracefulShutdownHandler
-import utils
+from utils import version
 from vq.files import VQFilesManager
 from vq.jobs_manager import Job, JobsSystemManager, WorkerRegistration
 import vq.api
@@ -135,7 +134,7 @@ def run_cloud():
     signal.signal(signal.SIGTERM, interrupt)
 
     with log.WithLogPrefix("345pdf: "):
-        log.log(f"version info: {utils.get_build_date()}-{utils.get_git_short_hash()}")
+        log.log(f"version info: {version.get_build_date()}-{version.get_git_short_hash()}")
         log.log("getting VQ details")
 
         api_settings = vq.api.get_api_key_details()

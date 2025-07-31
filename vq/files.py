@@ -8,7 +8,7 @@ import requests
 
 import utils.logging as log
 import vq.api
-from utils import GracefulShutdownHandler
+from utils.dependencies import GracefulShutdownHandler
 
 
 class DownloadManager:

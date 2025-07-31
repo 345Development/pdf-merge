@@ -2,7 +2,7 @@ import os
 from dataclasses import dataclass
 from typing import Any, Dict
 
-import utils
+from utils import version
 
 
 @dataclass
@@ -12,7 +12,7 @@ class ApiSettings:
 
 
 def get_user_agent_string() -> str:
-    return f"pdfmerge/{utils.get_build_date()}-{utils.get_git_short_hash()}"
+    return f"pdfmerge/{version.get_build_date()}-{version.get_git_short_hash()}"
 
 
 def get_api_key_details() -> ApiSettings:

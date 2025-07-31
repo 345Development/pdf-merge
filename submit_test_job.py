@@ -1,6 +1,6 @@
 import requests
 
-import utils
+from utils import version
 
 
 def main():
@@ -9,7 +9,7 @@ def main():
     job_url = f"{vqurl}/api/v1/jobs/job"
     headers = {
         "X-API-KEY": vqkey,
-        "User-Agent": f"pdfmerge/{utils.get_git_short_hash()}",
+        "User-Agent": f"pdfmerge/{version.get_git_short_hash()}",
     }
 
     input_file_uuids = [
