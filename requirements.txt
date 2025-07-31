@@ -4,3 +4,5 @@ pyhumps==3.8.0
 exceptiongroup==1.2.2
 tqdm
 requests
+types-tqdm
+types-requests

@@ -18,10 +18,10 @@ def run_job(
     vqf_manager: VQFilesManager, job: Job, shutdown_handler: GracefulShutdownHandler
 ):
     with tempfile.TemporaryDirectory() as job_dir:
-        job_dir = Path(job_dir)
+        job_path = Path(job_dir)
         downloaded_files = vqf_manager.download_files(
             job.files_to_merge,
-            job_dir,
+            job_path,
             shutdown_handler=shutdown_handler,
             organisation_uuid=job.organisation_uuid,
         )
@@ -34,7 +34,7 @@ def run_job(
         for pdf in downloaded_files:
             merger.append(pdf)
 
-        output_path = job_dir / job.output_name
+        output_path = job_path / job.output_name
         if output_path.suffix.lower() != ".pdf":
             output_path = output_path.with_suffix(".pdf")
 
@@ -156,11 +156,9 @@ def main():
         print("Timeout reached - forcing shutdown with os._exit(1)")
         os._exit(1)
 
-    signal.signal(signal.SIGALRM, timeout_handler)
-    signal.alarm(10)
+    signal.signal(signal.SIGALRM, timeout_handler)  # type: ignore[attr-defined]
+    signal.alarm(10)  # type: ignore[attr-defined]
 
 
 if __name__ == "__main__":
-    os.environ["VQ_URL"] = "https://api.345.global"
-    os.environ["VQ_KEY"] = "ze9BOS091EGUffol"
     main()

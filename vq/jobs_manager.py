@@ -94,6 +94,17 @@ class ClaimResponse(CamelModel):
 
 
 class JobsSystemHeartbeat:
+    api_settings: ApiSettings
+    worker_uuid: UUID
+    task_uuid: UUID
+    claim_uuid: UUID
+    shutdown_handler: GracefulShutdownHandler
+    interval: float
+    extension_duration: float
+    running: bool
+    _stop: bool
+    _thread: Optional[threading.Thread]
+
     def __init__(
         self,
         api_settings: ApiSettings,
@@ -101,8 +112,8 @@ class JobsSystemHeartbeat:
         task_uuid: UUID,
         claim_uuid: UUID,
         shutdown_handler: GracefulShutdownHandler,
-        interval=10,
-        extension_duration=600,
+        interval: float = 10,
+        extension_duration: float = 600,
     ):
         self.api_settings = api_settings
 
@@ -116,9 +127,10 @@ class JobsSystemHeartbeat:
         self.shutdown_handler = shutdown_handler
 
         self.running = False
-        self.__stop = False
+        self._stop = False
+        self._thread = None
 
-    def __heartbeat(self):
+    def _heartbeat(self):
         heartbeat_url = (
             f"{self.api_settings.url}/api/v1/jobs/tasks/{self.task_uuid}/poll"
             f"?workerUuid={self.worker_uuid}"
@@ -138,16 +150,16 @@ class JobsSystemHeartbeat:
         elif status != "in progress":
             log.error(f"warning - unexpected status from heartbeat {status}")
 
-    def __loop(self):
+    def _loop(self):
         error_count = 0
         while True:
             time.sleep(self.interval)
-            if self.__stop:
+            if self._stop:
                 self.running = False
                 return
             else:
                 try:
-                    self.__heartbeat()
+                    self._heartbeat()
                     error_count = 0
                 except Exception as e:
                     log.error("a heartbeat failed")
@@ -159,20 +171,20 @@ class JobsSystemHeartbeat:
                         raise e
 
     def start(self):
-        self.__thread = threading.Thread(target=self.__loop)
-        self.__thread.start()
+        self._thread = threading.Thread(target=self._loop)
+        self._thread.start()
         self.running = True
 
     def stop(self):
-        self.__stop = True
+        self._stop = True
 
     def wait_to_finish(self):
-        if not self.__stop:
+        if not self._stop:
             raise ValueError("Must stop heartbeat before waiting to finish")
 
-        if self.__thread.is_alive():
-            self.__thread.join(timeout=self.interval * 10)
-            if self.__thread.is_alive():
+        if self._thread and self._thread.is_alive():
+            self._thread.join(timeout=self.interval * 10)
+            if self._thread.is_alive():
                 raise TimeoutError("Heartbeat thread stuck alive")
 
 

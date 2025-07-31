@@ -12,9 +12,12 @@ from utils import GracefulShutdownHandler
 
 
 class DownloadManager:
+    futures_list: List[concurrent.futures.Future]
+    pbar: log.ProgressBar
+
     def __init__(self, total: Optional[int] = None):
         self.futures_list = []
-        self.pbar = log.progress_bar(desc="Downloading files", total=total)
+        self.pbar = log.ProgressBar(desc="Downloading files", total=total)
         self.executor = concurrent.futures.ThreadPoolExecutor()
 
     def download(self, url: str, destination: Path):
@@ -68,7 +71,7 @@ class VQFilesManager:
 
                 response = requests.get(
                     url=f"{self.vq_url}/api/v1/fileReferences/{file_uuid}",
-                    params={"organisation": organisation_uuid},
+                    params={"organisation": str(organisation_uuid)},
                     headers=self.headers,
                 )
 
@@ -106,7 +109,7 @@ class VQFilesManager:
             f"&organisation={organisation_uuid}"
         )
 
-        for file_path in log.progress_bar(files, desc="Uploading"):
+        for file_path in log.ProgressBar(files, desc="Uploading"):
             with open(file_path, "rb") as file_data:
                 files_body = {
                     "files_in": (file_path.name, file_data),

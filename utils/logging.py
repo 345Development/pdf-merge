@@ -2,6 +2,7 @@ import functools
 import sys
 import threading
 import time
+from types import TracebackType
 from typing import Callable, Iterable, List, Optional, TypeVar
 from typing_extensions import ParamSpec
 from tqdm import tqdm
@@ -63,7 +64,7 @@ def error(
     if exception is not None:
         if exception.__traceback__:
             filelines = []
-            tb = exception.__traceback__
+            tb: Optional[TracebackType] = exception.__traceback__
             while tb is not None:
                 filename = tb.tb_frame.f_code.co_filename
                 lineno = tb.tb_lineno
@@ -90,10 +91,10 @@ def error(
 #     yield from CloudProgress(iterable=iterable, total=total, desc=desc)
 
 
-T = TypeVar("T")
+class ProgressBar(Iterable[T]):
+    last_print_n: Optional[int]
+    last_print_time: Optional[float]
 
-
-class progress_bar(Iterable[T]):
     def __init__(
         self,
         iterable: Optional[Iterable[T]] = None,
