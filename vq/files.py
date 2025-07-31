@@ -23,12 +23,12 @@ class DownloadManager:
     def download(self, url: str, destination: Path):
         self.futures_list.append(
             self.executor.submit(
-                DownloadManager.__download_url_to_file, self, url, destination
+                DownloadManager._download_url_to_file, self, url, destination
             )
         )
         self.pbar.refresh()
 
-    def __download_url_to_file(self, url: str, destination: Path):
+    def _download_url_to_file(self, url: str, destination: Path):
         response = requests.get(url, stream=True)
         with open(destination, "wb") as out_file:
             shutil.copyfileobj(response.raw, out_file)
