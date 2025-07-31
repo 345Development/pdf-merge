@@ -1,16 +1,14 @@
-from collections import defaultdict
-import os
-from pathlib import Path
+import concurrent.futures
 import shutil
+from pathlib import Path
+from typing import List, Optional
 from uuid import UUID
 
 import requests
-import vq.api
-from vq.jobs_manager import Job
-from typing import Any, Dict, List, Optional, Set
+
 import utils.logging as log
+import vq.api
 from utils import GracefulShutdownHandler
-import concurrent.futures
 
 
 class DownloadManager:
