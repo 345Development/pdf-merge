@@ -21,6 +21,9 @@ class Job:
     task_uuid: UUID
     files_to_merge: List[UUID]
     destination_folder_uuid: UUID
+    output_name: str
+    organisation_uuid: UUID
+    task_token: str
 
     @staticmethod
     def from_claim(claim: ClaimResponse) -> Job:
@@ -28,6 +31,8 @@ class Job:
 
         files_to_merge = [UUID(file) for file in config["filesToMerge"]]
         destination_folder = UUID(config["destinationFolder"])
+        output_name = config["outputName"]
+        org_uuid = config["organisationUuid"]
 
         uuid = claim.task_uuid
 
@@ -35,6 +40,9 @@ class Job:
             task_uuid=uuid,
             files_to_merge=files_to_merge,
             destination_folder_uuid=destination_folder,
+            output_name=output_name,
+            organisation_uuid=org_uuid,
+            task_token=claim.task_token,
         )
 
 

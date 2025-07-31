@@ -47,15 +47,20 @@ class DownloadManager:
 
 
 class VQFilesManager:
-    def __init__(self, api_settings: vq.api.ApiSettings, organisation_uuid: UUID):
-        self.api_settings = api_settings
-        self.organisation_uuid = organisation_uuid
+    def __init__(self, vq_url: str, token: str):
+        self.vq_url = vq_url
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "User-Agent": vq.api.get_user_agent_string(),
+        }
+        self.headers = headers
 
     def download_files(
         self,
         files: List[UUID],
         download_path: Path,
         shutdown_handler: GracefulShutdownHandler,
+        organisation_uuid: UUID,
     ):
         downloaded_files: List[Path] = []
         with DownloadManager(total=len(files)) as download_manager:
@@ -64,12 +69,10 @@ class VQFilesManager:
                     return
 
                 vq_files_url = (
-                    f"{self.api_settings.url}/api/v1/fileReferences/{file_uuid}"
-                    f"&organisation={self.organisation_uuid}"
+                    f"{self.vq_url}/api/v1/fileReferences/{file_uuid}"
+                    f"&organisation={organisation_uuid}"
                 )
-                response = requests.get(
-                    url=vq_files_url, headers=self.api_settings.headers
-                )
+                response = requests.get(url=vq_files_url, headers=self.headers)
 
                 if response.status_code == 404:
                     raise FileNotFoundError(
@@ -95,78 +98,14 @@ class VQFilesManager:
 
         return downloaded_files
 
-    def _create_get_subfolders(self, job: Job, root_folder: Path, files: List[Path]):
-        subfolders: Set[Path] = {Path(".")}
-
-        folder_tree = {}
-        destination_folder_uuid = str(job.destination_folder_uuid)
-
-        for file in files:
-            rel_path = file.relative_to(root_folder)
-            ptr = folder_tree
-
-            subfolders.update(rel_path.parents)
-
-            for part in rel_path.parts[:-1]:
-                if part not in ptr:
-                    ptr[part] = {}
-                ptr = ptr[part]
-
-        def tree_to_list(d: Dict[str, Any]) -> List[Dict[str, Any]]:
-            return [{"name": k, "children": tree_to_list(v)} for k, v in d.items()]
-
-        subfolders_to_create = tree_to_list(folder_tree)
-
-        if len(subfolders_to_create) == 0:
-            return {Path("."): destination_folder_uuid}
-
-        log.log(f"creating/getting subfolders {subfolders}")
-
-        folders_url = (
-            f"{self.api_settings.url}/api/v1/fileReferences/folder"
-            f"?organisation={self.organisation_uuid}"
-        )
-
-        data = {
-            "parentFolderUuid": destination_folder_uuid,
-            "folders": subfolders_to_create,
-        }
-        response = requests.post(
-            url=folders_url, headers=self.api_settings.headers, json=data
-        )
-
-        response.raise_for_status()
-
-        new_folders = response.json()
-
-        subfolder_uuids: Dict[Path, str] = {}
-
-        sorted_subfolders = sorted([p for p in subfolders], key=lambda p: len(p.parts))
-
-        for subfolder in sorted_subfolders:
-            if subfolder == Path("."):
-                subfolder_uuids[subfolder] = destination_folder_uuid
-            else:
-                parent_uuid = subfolder_uuids[subfolder.parent]
-                matching_folders = [
-                    file
-                    for file in new_folders
-                    if file["folderUuid"] == parent_uuid
-                    and file["name"] == subfolder.name
-                ]
-
-                assert len(matching_folders) == 1
-
-                subfolder_uuids[subfolder] = matching_folders[0]["uuid"]
-
-        return subfolder_uuids
-
-    def upload_files(self, folder_uuid: UUID, files: List[Path]):
+    def upload_files(
+        self, folder_uuid: UUID, files: List[Path], organisation_uuid: UUID
+    ):
         upload_url = (
-            f"{self.api_settings.url}/api/v1/fileReferences/file"
+            f"{self.vq_url}/api/v1/fileReferences/file"
             "?overwrite=overwrite"
             "&runTriggers=true"
-            f"&organisation={self.organisation_uuid}"
+            f"&organisation={organisation_uuid}"
         )
 
         for file_path in log.progress_bar(files, desc="Uploading"):
@@ -182,7 +121,7 @@ class VQFilesManager:
 
                 response = requests.post(
                     url=upload_url,
-                    headers=self.api_settings.headers,
+                    headers=self.headers,
                     files=files_body,
                     data=data_body,
                 )

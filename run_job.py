@@ -1,12 +1,7 @@
-from datetime import datetime
-from functools import partial
 import os
 from pathlib import Path
 import signal
 import tempfile
-import time
-from typing import Callable, List
-from uuid import UUID
 
 from utils.dependencies import Reason
 import utils.logging as log
@@ -23,57 +18,43 @@ def run_job(
     vqf_manager: VQFilesManager, job: Job, shutdown_handler: GracefulShutdownHandler
 ):
     with tempfile.TemporaryDirectory() as job_dir:
-        try:
-            job_dir = Path(job_dir)
-            downloaded_files = vqf_manager.download_files(
-                job.files_to_merge, job_dir, shutdown_handler=shutdown_handler
-            )
+        job_dir = Path(job_dir)
+        downloaded_files = vqf_manager.download_files(
+            job.files_to_merge,
+            job_dir,
+            shutdown_handler=shutdown_handler,
+            organisation_uuid=job.organisation_uuid,
+        )
 
-            if not downloaded_files:
-                # interrupted
-                return
+        if not downloaded_files:
+            # interrupted
+            return
 
-            merger = PdfWriter()
-            for pdf in downloaded_files:
-                merger.append(pdf)
+        merger = PdfWriter()
+        for pdf in downloaded_files:
+            merger.append(pdf)
 
-            output_path = (
-                job_dir / "merged.pdf"
-            )  # TODO: for olly - what output filename? make input?
-            merger.write(output_path)
-            merger.close()
+        output_path = job_dir / job.output_name
+        if output_path.suffix.lower() != ".pdf":
+            output_path = output_path.with_suffix(".pdf")
 
-            vqf_manager.upload_files(job.destination_folder_uuid, [output_path])
+        merger.write(output_path)
+        merger.close()
 
-        except Exception as e:
-            # TODO: for olly - do you want it to output a file containing the error message if there's an error?
-            # if no, can just delete this entire exception block, and it'll still get logged)
-            import exceptiongroup
-
-            log.log("Attempting to write error log to vq files folder")
-
-            error_path = job_dir / Path(
-                f"error_log_{job.task_uuid}_{datetime.now().strftime('%Y%m%d-%H%M%S')}.txt"
-            )
-            exception_text = exceptiongroup.format_exception(e)
-            with open(error_path, "wt") as error_file:
-                error_file.writelines(exception_text)
-            vqf_manager.upload_files(job.destination_folder_uuid, [error_path])
-
-            raise e
+        vqf_manager.upload_files(
+            job.destination_folder_uuid,
+            [output_path],
+            organisation_uuid=job.organisation_uuid,
+        )
 
     log.log("cleaned up")
 
 
 def run_with_jobs_system(
     api_settings: vq.api.ApiSettings,
-    vqf_manager: VQFilesManager,
     shutdown_handler: GracefulShutdownHandler,
 ):
     continuous = os.getenv("CONTINUOUS", "false").lower() == "true"
-    sleep_time = int(os.getenv("SLEEP_TIME", "60"))
-
-    error_count = 0
 
     worker_details = WorkerRegistration(
         service_name="pdf-merge",
@@ -100,16 +81,13 @@ def run_with_jobs_system(
             try:
                 with jsm.get_job() as job:
                     try:
-                        error_count = 0
-
                         if job is None:
-                            if continuous:
-                                log.log("no jobs found, waiting... (continuous mode)")
-                                time.sleep(sleep_time)
-                                continue
-                            else:
-                                log.log("no jobs found, shutting down")
-                                return
+                            log.log("no jobs found, shutting down")
+                            return
+
+                        vqf_manager = VQFilesManager(
+                            vq_url=api_settings.url, token=job.task_token
+                        )
 
                         with log.WithLogPrefix(f"345pdf: {str(job.task_uuid)[:8]} - "):
                             run_job(
@@ -124,25 +102,17 @@ def run_with_jobs_system(
 
                         exceptiongroup.print_exception(e)
 
-                        if not continuous:
-                            return
+                        raise e
 
-                        if error_count >= 5:
-                            log.error("had successive errors so shutting down")
-                            return
-
-                        error_count += 1
             except Exception as e:
                 log.log("exception getting job from jobs system")
                 log.error(exception=e)
                 exceptiongroup.print_exception(e)
 
-                if error_count >= 5:
-                    log.error("had successive errors so shutting down")
-                    return
+                return
 
-                error_count += 1
-
+            # continuous mode will do jobs until there are no jobs left
+            # otherwise shuts down after 1 job
             if not continuous:
                 break
 
@@ -168,21 +138,10 @@ def run_cloud():
         log.log(f"version info: {utils.get_build_date()}-{utils.get_git_short_hash()}")
         log.log("getting VQ details")
 
-        api_settings = vq.api.get_api_details()
-
-        org = os.getenv("ORGANISATION_UUID")
-        if org is None:
-            raise ValueError(
-                "ORGANISATION_UUID env variable must be set for read/write to VQ Files"
-            )
-
-        vqf_manager = VQFilesManager(
-            api_settings=api_settings, organisation_uuid=UUID(org)
-        )
+        api_settings = vq.api.get_api_key_details()
 
         run_with_jobs_system(
             api_settings=api_settings,
-            vqf_manager=vqf_manager,
             shutdown_handler=shutdown_handler,
         )
         log.log("about to exit")
@@ -202,4 +161,6 @@ def main():
 
 
 if __name__ == "__main__":
+    os.environ["VQ_URL"] = "https://api.345.global"
+    os.environ["VQ_KEY"] = "ze9BOS091EGUffol"
     main()
