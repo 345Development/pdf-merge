@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pdf-merger
+  labels:
+    k8s.345.global/autoscale: "true"
+  annotations:
+    k8s.345.global/autoscale-metric-url: "http://jobapi-fastapi-production.default.svc.cluster.local/tasks/scale?service_name=pdf-merge&major_version=0&minor_version=1&patch_version=0"
+    k8s.345.global/autoscale-metric-key: tasks
+    k8s.345.global/autoscale-metric-target: "1"
+    k8s.345.global/autoscale-minimum: "0"
+    k8s.345.global/autoscale-maximum: "5"
+    k8s.345.global/autoscale-interval: "30"
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: pdf-merger
+  template:
+    metadata:
+      labels:
+        app: pdf-merger
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: pdf-merger
+          image: gcr.io/core-345/pdf-merger:v0.1.0
+          resources:
+            requests:
+              cpu: "0.5"
+              memory: "500Mi"
+          env:
+            - name: CONTINUOUS
+              value: "true"
+            - name: VQ_URL
+              value: https://api.345.global
+            - name: VQ_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: rplanworker-secrets
+                  key: api_key
