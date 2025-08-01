@@ -12,6 +12,7 @@ import humps
 import requests
 
 from utils.dependencies import GracefulShutdownHandler, Reason
+from utils.k8s import update_pod_deletion_cost
 from vq.api import ApiSettings
 import utils.logging as log
 
@@ -207,6 +208,7 @@ class JobsSystemManager:
 
     def __enter__(self):
         self.worker = self.__register_worker()
+        update_pod_deletion_cost(-1000)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -263,6 +265,7 @@ class JobsSystemManager:
             yield None
             return
 
+        update_pod_deletion_cost(1000)
         response_json = response.json()
         claim_response = ClaimResponse(**response_json)
 
@@ -309,6 +312,7 @@ class JobsSystemManager:
                 self.__job_complete(task_uuid, claim_uuid)
 
             self.heartbeat.stop()
+            update_pod_deletion_cost(-1000)
             try:
                 self.heartbeat.wait_to_finish()
             except Exception as e:
