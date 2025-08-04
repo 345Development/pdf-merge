@@ -1,20 +1,21 @@
 from __future__ import annotations
+
+import threading
+import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
-import threading
-import time
 from typing import Generator, List, Optional
-from pydantic import BaseModel
 from uuid import UUID
 
 import humps
 import requests
+from pydantic import BaseModel
 
+import utils.logging as log
 from utils.dependencies import GracefulShutdownHandler, Reason
 from utils.k8s import update_pod_deletion_cost
 from vq.api import ApiSettings
-import utils.logging as log
 
 
 @dataclass
@@ -208,7 +209,7 @@ class JobsSystemManager:
 
     def __enter__(self):
         self.worker = self.__register_worker()
-        update_pod_deletion_cost(-1000)
+        self._update_pod_deletion_cost(-1000)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -265,7 +266,7 @@ class JobsSystemManager:
             yield None
             return
 
-        update_pod_deletion_cost(1000)
+        self._update_pod_deletion_cost(1000)
         response_json = response.json()
         claim_response = ClaimResponse(**response_json)
 
@@ -312,7 +313,7 @@ class JobsSystemManager:
                 self.__job_complete(task_uuid, claim_uuid)
 
             self.heartbeat.stop()
-            update_pod_deletion_cost(-1000)
+            self._update_pod_deletion_cost(-1000)
             try:
                 self.heartbeat.wait_to_finish()
             except Exception as e:
@@ -336,3 +337,6 @@ class JobsSystemManager:
         )
         response = requests.post(return_url, headers=self.api_settings.headers)
         response.raise_for_status()
+
+    def _update_pod_deletion_cost(self, deletion_cost: int):
+        return update_pod_deletion_cost(deletion_cost=deletion_cost)
