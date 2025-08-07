@@ -30,6 +30,10 @@ spec:
               cpu: "0.5"
               memory: "500Mi"
           env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
             - name: CONTINUOUS
               value: "true"
             - name: VQ_URL
