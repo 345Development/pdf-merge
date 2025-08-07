@@ -7,8 +7,8 @@ import utils.logging as log
 
 def update_pod_deletion_cost(deletion_cost: int) -> bool:
     pod_name = os.getenv("POD_NAME")
-    k8s_service_host = os.getenv("K8S_SERVICE_HOST")
-    k8s_service_port = os.getenv("K8S_SERVICE_PORT")
+    k8s_service_host = os.getenv("KUBERNETES_SERVICE_HOST")
+    k8s_service_port = os.getenv("KUBERNETES_SERVICE_PORT")
     if not pod_name:
         log.log(
             "This worker does not seem to be running in K8s pod and therefore can not update the deletion cost."
