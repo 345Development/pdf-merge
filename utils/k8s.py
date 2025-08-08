@@ -44,8 +44,8 @@ def update_pod_deletion_cost(deletion_cost: int) -> bool:
         response = requests.patch(
             url=patch_url, headers=headers, json=patch, verify=False
         )
-        if response.status != 200:
-            raise Exception(f"k8s patch failed: {response.status}")
+        if response.status_code != 200:
+            raise Exception(f"k8s patch failed: {response.status_code}")
         return True
     except Exception as e:
         log.log(str(e))
