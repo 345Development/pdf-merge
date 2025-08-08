@@ -39,10 +39,11 @@ def update_pod_deletion_cost(deletion_cost: int) -> bool:
     patch_url = f"https://{k8s_service_host}:{k8s_service_port}/api/v1/namespaces/default/pods/{pod_name}"
 
     try:
-        # TODO investigate why SSL isn't working
-        # having same issue with rplan worker
         response = requests.patch(
-            url=patch_url, headers=headers, json=patch, verify=False
+            url=patch_url,
+            headers=headers,
+            json=patch,
+            verify="/var/run/secrets/kubernetes.io/serviceaccount/ca.crt",
         )
         if response.status_code != 200:
             raise Exception(f"k8s patch failed: {response.status_code}")

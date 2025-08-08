@@ -21,6 +21,7 @@ spec:
       labels:
         app: pdf-merger
     spec:
+      serviceAccountName: dbapi-ksa
       terminationGracePeriodSeconds: 60
       containers:
         - name: pdf-merger
