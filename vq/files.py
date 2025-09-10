@@ -92,7 +92,7 @@ class VQFilesManager:
                     + "."
                     + file_info["extension"]
                 )
-                destination: Path = download_path / file["name"]
+                destination: Path = download_path / f"{file_uuid}.pdf"
                 download_manager.download(file_url, destination)
 
                 downloaded_files.append(destination)
